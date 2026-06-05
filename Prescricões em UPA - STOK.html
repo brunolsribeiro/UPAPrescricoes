@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Executivo - Farmácia UPA 24h</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .tab-active {
+            border-bottom: 2px solid #1d4ed8;
+            color: #1d4ed8;
+            font-weight: 600;
+        }
+        .tab-inactive {
+            color: #6b7280;
+        }
+        .tab-inactive:hover {
+            color: #374151;
+        }
+        /* Custom scrollbar for table */
+        .table-container::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background: #c1c1c1; 
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8; 
+        }
+        /* Ajuste para o ícone do calendário no input date ficar visível no tema escuro */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+            opacity: 0.6;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white shadow-md z-10 relative">
+        <div class="px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-notes-medical text-2xl text-blue-400"></i>
+                <h1 class="text-xl font-semibold tracking-wide">UPA Patamões <span class="text-slate-400 font-light text-sm ml-2">| Governança de Farmácia</span></h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                
+                <!-- Filtro de Período (Pílula) -->
+                <div class="bg-slate-800 rounded-full px-4 py-1.5 text-sm border border-slate-700 flex items-center shadow-inner">
+                    <i class="fa-regular fa-calendar text-slate-400 mr-2"></i>
+                    <input type="date" id="dataInicio" value="2026-05-01" class="bg-transparent text-white outline-none cursor-pointer font-medium tracking-wide" onchange="atualizarDashboard()">
+                    <span class="text-slate-500 font-light mx-2">até</span>
+                    <input type="date" id="dataFim" value="2026-05-06" class="bg-transparent text-white outline-none cursor-pointer font-medium tracking-wide" onchange="atualizarDashboard()">
+                </div>
+
+                <!-- Filtro de Prescritor -->
+                <div class="bg-slate-800 rounded-md px-3 py-1.5 text-sm border border-slate-700 flex items-center shadow-inner">
+                    <i class="fa-solid fa-user-doctor mr-2 text-slate-400"></i>
+                    <select id="filtroPrescritor" class="bg-transparent text-white outline-none cursor-pointer font-medium tracking-wide appearance-none pr-4" onchange="atualizarDashboard()">
+                        <option value="todos" class="text-gray-900">Todos os Prescritores</option>
+                        <option value="aline" class="text-gray-900">Aline Silva</option>
+                        <option value="roberto" class="text-gray-900">Roberto Costa</option>
+                        <option value="mariana" class="text-gray-900">Mariana Souza</option>
+                        <option value="paulo" class="text-gray-900">Paulo Lima</option>
+                        <option value="camila" class="text-gray-900">Camila Freitas</option>
+                    </select>
+                </div>
+
+                <button class="bg-blue-600 hover:bg-blue-700 transition px-4 py-1.5 rounded-md text-sm font-medium flex items-center shadow-sm">
+                    <i class="fa-solid fa-download mr-2"></i> Exportar
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Scrollable -->
+    <main class="flex-1 overflow-y-auto p-6">
+        
+        <!-- KPIs Executivos -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+            <!-- KPI 1 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 transition-opacity duration-300" id="card-volume">
+                <div class="flex justify-between items-start mb-2">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Volume (Prescrições)</p>
+                    <div class="p-1.5 bg-blue-50 rounded-lg text-blue-600"><i class="fa-solid fa-file-prescription text-sm"></i></div>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900" id="kpi-volume">4.250</h3>
+                <p class="text-xs text-green-600 mt-1 flex items-center font-medium" id="kpi-volume-trend"><i class="fa-solid fa-arrow-trend-up mr-1"></i> +5.2% <span class="text-gray-400 font-normal ml-1">vs semana anterior</span></p>
+            </div>
+            <!-- KPI 2 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 transition-opacity duration-300" id="card-dispensacoes">
+                <div class="flex justify-between items-start mb-2">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Dispensações</p>
+                    <div class="p-1.5 bg-indigo-50 rounded-lg text-indigo-600"><i class="fa-solid fa-pills text-sm"></i></div>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900" id="kpi-dispensacoes">3.985</h3>
+                <p class="text-xs text-green-600 mt-1 flex items-center font-medium" id="kpi-dispensacoes-trend"><i class="fa-solid fa-arrow-trend-up mr-1"></i> +4.8% <span class="text-gray-400 font-normal ml-1">vs semana anterior</span></p>
+            </div>
+            <!-- KPI 3 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 transition-opacity duration-300" id="card-taxa">
+                <div class="flex justify-between items-start mb-2">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Taxa de Atendimento</p>
+                    <div class="p-1.5 bg-emerald-50 rounded-lg text-emerald-600"><i class="fa-solid fa-check-double text-sm"></i></div>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900" id="kpi-taxa">93.7%</h3>
+                <p class="text-sm font-semibold text-gray-700 mt-1">80 min. <span class="text-xs font-normal text-gray-500">(tempo médio de dispensação)</span></p>
+                <p class="text-xs text-red-500 mt-1 flex items-center font-medium" id="kpi-taxa-trend"><i class="fa-solid fa-arrow-trend-down mr-1"></i> -1.2% <span class="text-gray-400 font-normal ml-1">vs meta (95%)</span></p>
+            </div>
+            <!-- KPI 4 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div class="flex justify-between items-start mb-2">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Pico Operacional</p>
+                    <div class="p-1.5 bg-amber-50 rounded-lg text-amber-600"><i class="fa-solid fa-clock text-sm"></i></div>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900">11h - 13h</h3>
+                <p class="text-sm font-semibold text-gray-700 mt-1">550 dispensações</p>
+                <p class="text-xs text-amber-600 mt-1 flex items-center font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Risco de gargalo</p>
+            </div>
+            <!-- KPI 5 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div class="flex justify-between items-start mb-2">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Giro (Curva A)</p>
+                    <div class="p-1.5 bg-purple-50 rounded-lg text-purple-600"><i class="fa-solid fa-rotate text-sm"></i></div>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900">Dipirona</h3>
+            </div>
+            <!-- KPI 6 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div class="flex justify-between items-start mb-2">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Cobertura Médica</p>
+                    <div class="p-1.5 bg-cyan-50 rounded-lg text-cyan-600"><i class="fa-solid fa-user-doctor text-sm"></i></div>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900" id="kpi-cobertura">6</h3>
+                <p class="text-xs text-gray-500 mt-1 flex items-center font-medium" id="kpi-cobertura-desc">profissionais ativos</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            
+            <!-- Left Column: Alertas & Gráfico de Barras -->
+            <div class="lg:col-span-1 space-y-6">
+                
+                <!-- Alertas Estratégicos -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="bg-slate-50 px-5 py-3 border-b border-gray-100 flex justify-between items-center">
+                        <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">Alertas Estratégicos</h2>
+                    </div>
+                    <div class="p-5 space-y-4">
+                        <!-- Alerta 1 -->
+                        <div class="flex items-start p-3 bg-red-50 border-l-4 border-red-500 rounded-r-md alerta-item" data-prescritor="aline">
+                            <i class="fa-solid fa-circle-exclamation text-red-500 mt-0.5 mr-3"></i>
+                            <div>
+                                <h4 class="text-sm font-bold text-red-800">Desvio Clínico: Tramadol</h4>
+                                <p class="text-xs text-red-700 mt-1">Aline Silva prescreveu 145% acima da média dos seus pares. Recomenda-se revisão pelo comitê farmacoterapêutico.</p>
+                            </div>
+                        </div>
+                        <!-- Alerta 2 -->
+                        <div class="flex items-start p-3 bg-amber-50 border-l-4 border-amber-500 rounded-r-md alerta-item" data-prescritor="todos">
+                            <i class="fa-solid fa-boxes-stacked text-amber-500 mt-0.5 mr-3"></i>
+                            <div>
+                                <h4 class="text-sm font-bold text-amber-800">Oportunidade de padronização</h4>
+                                <p class="text-xs text-amber-700 mt-1">Dipirona corresponde a 48% de todo o volume dispensado. Negociação de contrato com fornecedor único pode reduzir custo unitário.</p>
+                            </div>
+                        </div>
+                        <!-- Alerta 3 -->
+                        <div class="flex items-start p-3 bg-orange-50 border-l-4 border-orange-500 rounded-r-md alerta-item" data-prescritor="todos">
+                            <i class="fa-solid fa-user-clock text-orange-500 mt-0.5 mr-3"></i>
+                            <div>
+                                <h4 class="text-sm font-bold text-orange-800">Gargalo de Atendimento</h4>
+                                <p class="text-xs text-orange-700 mt-1">62% das dispensações ocorrem em 2h da prescrição. Avaliar reforço de equipe ou pré-separação de medicamentos de alto giro neste turno.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dispensações por Hora -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="bg-slate-50 px-5 py-3 border-b border-gray-100 flex justify-between items-center">
+                        <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">Dispensações por Hora</h2>
+                        <div class="flex items-center space-x-3 text-[10px] uppercase font-bold text-gray-500">
+                            <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-blue-700 mr-1"></span> Volume</span>
+                            <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-emerald-500 mr-1"></span> Pico</span>
+                        </div>
+                    </div>
+                    <div class="p-5">
+                        <div class="relative h-48 w-full">
+                            <canvas id="hourlyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Tabela & Tendência -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- Tabela de Prescrições -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[420px]">
+                    <div class="px-5 py-3 border-b border-gray-100 flex justify-between items-center bg-slate-50">
+                        <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">Monitoramento de Prescritores</h2>
+                        <div class="flex space-x-1 bg-gray-200 p-1 rounded-lg">
+                            <button id="btn-taxa" onclick="setVisao('taxa')" class="px-3 py-1 text-xs font-medium bg-white shadow-sm rounded-md text-gray-800 transition-all">Taxa de Dispensação</button>
+                            <button id="btn-visao" onclick="setVisao('visao')" class="px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 rounded-md transition-all">Visão Geral</button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 overflow-auto table-container p-0">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-white sticky top-0 shadow-sm z-10">
+                                <tr>
+                                    <th class="py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">Profissional</th>
+                                    <th class="py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">Especialidade</th>
+                                    <th class="py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b text-right">Vol. Prescrições</th>
+                                    <th id="th-col4" class="py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b text-right">Taxa Dispensação</th>
+                                    <th id="th-col5" class="py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b text-right">Desvio da Média</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100" id="tabela-prescritores">
+                                <!-- Row 1 (Outlier) -->
+                                <tr class="bg-red-50/30 hover:bg-red-50 transition prescritor-row" data-prescritor="aline">
+                                    <td class="py-3 px-5">
+                                        <div class="flex items-center">
+                                            <div class="h-8 w-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-xs mr-3">AS</div>
+                                            <div>
+                                                <p class="text-sm font-semibold text-gray-900">Aline Silva</p>
+                                                <p class="text-xs text-gray-500">CRM 45892</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-5 text-sm text-gray-600">Clínica Médica</td>
+                                    <td class="py-3 px-5 text-sm font-medium text-gray-900 text-right">412</td>
+                                    <td class="py-3 px-5 text-right">
+                                        <span class="view-taxa text-sm font-medium text-gray-900">98.5%</span>
+                                        <span class="view-visao text-sm font-medium text-gray-900" style="display: none;">406</span>
+                                    </td>
+                                    <td class="py-3 px-5 text-right">
+                                        <span class="view-taxa inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                                            +145% (Tramadol)
+                                        </span>
+                                        <span class="view-visao inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800" style="display: none;">
+                                            6 pendentes
+                                        </span>
+                                    </td>
+                                </tr>
+                                <!-- Row 2 -->
+                                <tr class="hover:bg-gray-50 transition prescritor-row" data-prescritor="roberto">
+                                    <td class="py-3 px-5">
+                                        <div class="flex items-center">
+                                            <div class="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs mr-3">RC</div>
+                                            <div>
+                                                <p class="text-sm font-semibold text-gray-900">Roberto Costa</p>
+                                                <p class="text-xs text-gray-500">CRM 33104</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-5 text-sm text-gray-600">Pediatria</td>
+                                    <td class="py-3 px-5 text-sm font-medium text-gray-900 text-right">385</td>
+                                    <td class="py-3 px-5 text-right">
+                                        <span class="view-taxa text-sm font-medium text-gray-900">94.2%</span>
+                                        <span class="view-visao text-sm font-medium text-gray-900" style="display: none;">363</span>
+                                    </td>
+                                    <td class="py-3 px-5 text-right">
+                                        <span class="view-taxa inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                            +2.1%
+                                        </span>
+                                        <span class="view-visao inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800" style="display: none;">
+                                            22 pendentes
+                                        </span>
+                                    </td>
+                                </tr>
+                                <!-- Row 3 -->
+                                <tr class="hover:bg-gray-50 transition prescritor-row" data-prescritor="mariana">
+                                    <td class="py-3 px-5">
+                                        <div class="flex items-center">
+                                            <div class="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs mr-3">MS</div>
+                                            <div>
+                                                <p class="text-sm font-semibold text-gray-900">Mariana Souza</p>
+                                                <p class="text-xs text-gray-500">CRM 51220</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-5 text-sm text-gray-600">Clínica Médica</td>
+                                    <td class="py-3 px-5 text-sm font-medium text-gray-900 text-right">340</td>
+                                    <td class="py-3 px-5 text-right">
+                                        <span class="view-taxa text-sm font-medium text-gray-900">95.1%</span>
+                                        <span class="view-visao text-sm font-medium text-gray-900" style="display: none;">323</span>
+                                    </td>
+                                    <td class="py-3 px-5 text-right">
+                                        <span class="view-taxa inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                            -1.5%
+                                        </span>
+                                        <span class="view-visao inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800" style="display: none;">
+                                            17 pendentes
+                                        </span>
+                                    </td>
+                                </tr>
+                                <!-- Row 4 -->
+                                <tr class="hover:bg-gray-50 transition prescritor-row" data-prescritor="paulo">
+                                    <td class="py-3 px-5">
+                                        <div class="flex items-center">
+                                            <div class="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs mr-3">PL</div>
+                                            <div>
+                                                <p class="text-sm font-semibold text-gray-900">Paulo Lima</p>
+                                                <p class="text-xs text-gray-500">CRM 29088</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-5 text-sm text-gray-600">Ortopedia</td>
+                                    <td class="py-3 px-5 text-sm font-medium text-gray-900 text-right">290</td>
+                                    <td class="py-3 px-5 text-right">
+                                        <span class="view-taxa text-sm font-medium text-gray-900">91.8%</span>
+                                        <span class="view-visao text-sm font-medium text-gray-900" style="display: none;">266</span>
+                                    </td>
+                                    <td class="py-3 px-5 text-right">
+                                        <span class="view-taxa inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                            -0.8%
+                                        </span>
+                                        <span class="view-visao inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800" style="display: none;">
+                                            24 pendentes
+                                        </span>
+                                    </td>
+                                </tr>
+                                <!-- Row 5 -->
+                                <tr class="hover:bg-gray-50 transition prescritor-row" data-prescritor="camila">
+                                    <td class="py-3 px-5">
+                                        <div class="flex items-center">
+                                            <div class="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs mr-3">CF</div>
+                                            <div>
+                                                <p class="text-sm font-semibold text-gray-900">Camila Freitas</p>
+                                                <p class="text-xs text-gray-500">CRM 60112</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-5 text-sm text-gray-600">Pediatria</td>
+                                    <td class="py-3 px-5 text-sm font-medium text-gray-900 text-right">245</td>
+                                    <td class="py-3 px-5 text-right">
+                                        <span class="view-taxa text-sm font-medium text-gray-900">96.0%</span>
+                                        <span class="view-visao text-sm font-medium text-gray-900" style="display: none;">235</span>
+                                    </td>
+                                    <td class="py-3 px-5 text-right">
+                                        <span class="view-taxa inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                            +0.5%
+                                        </span>
+                                        <span class="view-visao inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800" style="display: none;">
+                                            10 pendentes
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Gráfico de Tendência (Volume vs Dispensação) -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="bg-slate-50 px-5 py-3 border-b border-gray-100 flex justify-between items-center">
+                        <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">Prescrições vs Dispensações (Por Hora)</h2>
+                        <span class="text-xs text-gray-500 font-medium"><i class="fa-solid fa-circle text-[8px] text-red-500 mr-1"></i> Gap Operacional (11h-13h)</span>
+                    </div>
+                    <div class="p-5">
+                        <div class="relative h-48 w-full">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Nova Linha: Mapa de Calor e Top 20 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            
+            <!-- Mapa de Calor das Dispensações -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                <div class="bg-slate-50 px-5 py-3 border-b border-gray-100">
+                    <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">Mapa de Calor das Dispensações</h2>
+                </div>
+                <div class="p-5 flex-1 flex flex-col justify-center">
+                    <div class="grid grid-cols-8 gap-1 text-[10px]">
+                        <!-- Header -->
+                        <div></div>
+                        <div class="text-center font-semibold text-gray-500">Seg</div>
+                        <div class="text-center font-semibold text-gray-500">Ter</div>
+                        <div class="text-center font-semibold text-gray-500">Qua</div>
+                        <div class="text-center font-semibold text-gray-500">Qui</div>
+                        <div class="text-center font-semibold text-gray-500">Sex</div>
+                        <div class="text-center font-semibold text-gray-500">Sáb</div>
+                        <div class="text-center font-semibold text-gray-500">Dom</div>
+
+                        <!-- 00h - 01h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">00h - 01h</div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="12 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="15 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="8 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="10 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="25 dispensações"></div>
+                        <div class="h-5 bg-blue-300 rounded heatmap-cell" title="40 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="30 dispensações"></div>
+
+                        <!-- 01h - 02h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">01h - 02h</div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="10 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="12 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="5 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="8 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="20 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="25 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="15 dispensações"></div>
+
+                        <!-- 02h - 03h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">02h - 03h</div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="8 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="10 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="4 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="6 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="15 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="20 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="12 dispensações"></div>
+
+                        <!-- 03h - 04h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">03h - 04h</div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="5 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="8 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="3 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="5 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="10 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="15 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="8 dispensações"></div>
+
+                        <!-- 04h - 05h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">04h - 05h</div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="4 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="6 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="2 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="4 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="8 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="12 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="6 dispensações"></div>
+
+                        <!-- 05h - 06h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">05h - 06h</div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="15 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="18 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="10 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="12 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="30 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="45 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="20 dispensações"></div>
+
+                        <!-- 06h - 07h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">06h - 07h</div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="40 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="45 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="35 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="38 dispensações"></div>
+                        <div class="h-5 bg-blue-300 rounded heatmap-cell" title="60 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="85 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="50 dispensações"></div>
+
+                        <!-- 07h - 08h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">07h - 08h</div>
+                        <div class="h-5 bg-blue-300 rounded heatmap-cell" title="65 dispensações"></div>
+                        <div class="h-5 bg-blue-300 rounded heatmap-cell" title="70 dispensações"></div>
+                        <div class="h-5 bg-blue-300 rounded heatmap-cell" title="60 dispensações"></div>
+                        <div class="h-5 bg-blue-300 rounded heatmap-cell" title="65 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="90 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="120 dispensações"></div>
+                        <div class="h-5 bg-blue-300 rounded heatmap-cell" title="75 dispensações"></div>
+
+                        <!-- 08h - 09h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">08h - 09h</div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="95 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="100 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="85 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="90 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="130 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="160 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="110 dispensações"></div>
+
+                        <!-- 09h - 10h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">09h - 10h</div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="120 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="135 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="110 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="125 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="170 dispensações"></div>
+                        <div class="h-5 bg-blue-700 rounded heatmap-cell" title="210 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="140 dispensações"></div>
+
+                        <!-- 10h - 11h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">10h - 11h</div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="150 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="165 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="140 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="155 dispensações"></div>
+                        <div class="h-5 bg-blue-700 rounded heatmap-cell" title="210 dispensações"></div>
+                        <div class="h-5 bg-blue-800 rounded heatmap-cell" title="260 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="175 dispensações"></div>
+
+                        <!-- 11h - 12h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">11h - 12h</div>
+                        <div class="h-5 bg-blue-700 rounded heatmap-cell" title="190 dispensações"></div>
+                        <div class="h-5 bg-blue-700 rounded heatmap-cell" title="210 dispensações"></div>
+                        <div class="h-5 bg-blue-700 rounded heatmap-cell" title="180 dispensações"></div>
+                        <div class="h-5 bg-blue-700 rounded heatmap-cell" title="195 dispensações"></div>
+                        <div class="h-5 bg-blue-800 rounded heatmap-cell" title="260 dispensações"></div>
+                        <div class="h-5 bg-blue-900 rounded heatmap-cell" title="320 dispensações"></div>
+                        <div class="h-5 bg-blue-700 rounded heatmap-cell" title="220 dispensações"></div>
+
+                        <!-- 12h - 13h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">12h - 13h</div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="160 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="180 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="150 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="165 dispensações"></div>
+                        <div class="h-5 bg-blue-700 rounded heatmap-cell" title="220 dispensações"></div>
+                        <div class="h-5 bg-blue-800 rounded heatmap-cell" title="280 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="190 dispensações"></div>
+
+                        <!-- 13h - 14h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">13h - 14h</div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="130 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="145 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="120 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="135 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="180 dispensações"></div>
+                        <div class="h-5 bg-blue-700 rounded heatmap-cell" title="230 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="150 dispensações"></div>
+
+                        <!-- 14h - 15h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">14h - 15h</div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="100 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="115 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="95 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="105 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="140 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="180 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="120 dispensações"></div>
+
+                        <!-- 15h - 16h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">15h - 16h</div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="90 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="105 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="85 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="95 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="125 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="160 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="105 dispensações"></div>
+
+                        <!-- 16h - 17h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">16h - 17h</div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="110 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="125 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="100 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="115 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="155 dispensações"></div>
+                        <div class="h-5 bg-blue-700 rounded heatmap-cell" title="195 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="130 dispensações"></div>
+
+                        <!-- 17h - 18h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">17h - 18h</div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="140 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="160 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="130 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="145 dispensações"></div>
+                        <div class="h-5 bg-blue-700 rounded heatmap-cell" title="195 dispensações"></div>
+                        <div class="h-5 bg-blue-800 rounded heatmap-cell" title="245 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="165 dispensações"></div>
+
+                        <!-- 18h - 19h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">18h - 19h</div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="125 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="140 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="115 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="130 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="175 dispensações"></div>
+                        <div class="h-5 bg-blue-700 rounded heatmap-cell" title="220 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="145 dispensações"></div>
+
+                        <!-- 19h - 20h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">19h - 20h</div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="95 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="110 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="85 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="100 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="135 dispensações"></div>
+                        <div class="h-5 bg-blue-600 rounded heatmap-cell" title="170 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="115 dispensações"></div>
+
+                        <!-- 20h - 21h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">20h - 21h</div>
+                        <div class="h-5 bg-blue-300 rounded heatmap-cell" title="70 dispensações"></div>
+                        <div class="h-5 bg-blue-300 rounded heatmap-cell" title="80 dispensações"></div>
+                        <div class="h-5 bg-blue-300 rounded heatmap-cell" title="65 dispensações"></div>
+                        <div class="h-5 bg-blue-300 rounded heatmap-cell" title="75 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="100 dispensações"></div>
+                        <div class="h-5 bg-blue-500 rounded heatmap-cell" title="130 dispensações"></div>
+                        <div class="h-5 bg-blue-300 rounded heatmap-cell" title="85 dispensações"></div>
+
+                        <!-- 21h - 22h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">21h - 22h</div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="45 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="55 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="40 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="50 dispensações"></div>
+                        <div class="h-5 bg-blue-300 rounded heatmap-cell" title="70 dispensações"></div>
+                        <div class="h-5 bg-blue-400 rounded heatmap-cell" title="90 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="55 dispensações"></div>
+
+                        <!-- 22h - 23h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">22h - 23h</div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="25 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="30 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="20 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="28 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="40 dispensações"></div>
+                        <div class="h-5 bg-blue-300 rounded heatmap-cell" title="55 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="35 dispensações"></div>
+
+                        <!-- 23h - 00h -->
+                        <div class="flex items-center justify-end pr-2 text-gray-600 font-medium">23h - 00h</div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="15 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="18 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="12 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="16 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="25 dispensações"></div>
+                        <div class="h-5 bg-blue-200 rounded heatmap-cell" title="35 dispensações"></div>
+                        <div class="h-5 bg-blue-100 rounded heatmap-cell" title="20 dispensações"></div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top 20 Medicamentos -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                <div class="bg-slate-50 px-5 py-3 border-b border-gray-100">
+                    <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">Top 20 Medicamentos Prescritos</h2>
+                </div>
+                <div class="p-5 flex-1 flex flex-col">
+                    <div class="relative flex-1 w-full min-h-[500px]">
+                        <canvas id="top10Chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        // Instâncias dos gráficos
+        let chartHourly;
+        let chartTrend;
+        let chartTop10;
+
+        // Inicialização do Chart.js
+        function initCharts() {
+            Chart.defaults.font.family = "'Inter', sans-serif";
+            Chart.defaults.color = '#6b7280';
+            Chart.defaults.scale.grid.color = '#f3f4f6';
+
+            // 1. Hourly / Bar Chart (24h)
+            const ctxHourly = document.getElementById('hourlyChart').getContext('2d');
+            chartHourly = new Chart(ctxHourly, {
+                type: 'bar',
+                data: {
+                    labels: ['00h','01h','02h','03h','04h','05h','06h','07h','08h','09h','10h','11h','12h','13h','14h','15h','16h','17h','18h','19h','20h','21h','22h','23h'],
+                    datasets: [{
+                        label: 'Dispensações',
+                        data: [5, 4, 3, 2, 5, 10, 25, 45, 65, 85, 100, 120, 95, 85, 75, 65, 70, 110, 90, 65, 45, 30, 20, 10],
+                        backgroundColor: function(context) {
+                            return context.dataIndex === 11 ? '#10b981' : '#1d4ed8'; // 11h em verde
+                        },
+                        borderRadius: 2,
+                        barPercentage: 0.8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1e293b',
+                            padding: 10
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, border: { display: false } },
+                        x: { 
+                            grid: { display: false }, 
+                            border: { display: false },
+                            ticks: {
+                                callback: function(val, index) {
+                                    // Mostra rótulo a cada 4 horas
+                                    return index % 4 === 0 ? this.getLabelForValue(val) : '';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 2. Line Chart
+            const ctxTrend = document.getElementById('trendChart').getContext('2d');
+            chartTrend = new Chart(ctxTrend, {
+                type: 'line',
+                data: {
+                    labels: ['00h','01h','02h','03h','04h','05h','06h','07h','08h','09h','10h','11h','12h','13h','14h','15h','16h','17h','18h','19h','20h','21h','22h','23h'],
+                    datasets: [
+                        {
+                            label: 'Prescrições Recebidas',
+                            data: [15, 12, 10, 8, 10, 20, 45, 80, 110, 130, 145, 160, 150, 140, 120, 100, 90, 115, 130, 105, 80, 50, 30, 20],
+                            borderColor: '#1d4ed8',
+                            backgroundColor: 'rgba(29, 78, 216, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#1d4ed8'
+                        },
+                        {
+                            label: 'Dispensações Realizadas',
+                            data: [12, 10, 8, 7, 9, 18, 40, 75, 100, 120, 135, 140, 130, 125, 110, 95, 85, 105, 120, 95, 75, 45, 25, 18],
+                            borderColor: '#10b981',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#10b981'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'top', align: 'end', labels: { boxWidth: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 11 } } },
+                        tooltip: { backgroundColor: '#1e293b', padding: 10 }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, border: { display: false } },
+                        x: { grid: { display: false }, border: { display: false } }
+                    }
+                }
+            });
+
+            // 3. Top 20 Chart
+            const ctxTop10 = document.getElementById('top10Chart').getContext('2d');
+            chartTop10 = new Chart(ctxTop10, {
+                type: 'bar',
+                data: {
+                    labels: ['Dipirona', 'Ibuprofeno', 'Amoxicilina', 'Omeprazol', 'Paracetamol', 'Azitromicina', 'Cefalexina', 'Losartana', 'Loratadina', 'Prednisona', 'Simeticona', 'Enalapril', 'Metformina', 'Diclofenaco', 'Dexametasona', 'Clonazepam', 'Ciprofloxacino', 'Hidroclorotiazida', 'Atenolol', 'Fluoxetina'],
+                    datasets: [{
+                        label: 'Volume',
+                        data: [450, 380, 320, 290, 250, 210, 190, 150, 120, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40],
+                        backgroundColor: '#1d4ed8',
+                        borderRadius: 4,
+                        barPercentage: 0.7
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { backgroundColor: '#1e293b', padding: 10 }
+                    },
+                    scales: {
+                        x: { beginAtZero: true, border: { display: false }, grid: { color: '#f3f4f6' } },
+                        y: { grid: { display: false }, border: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // Função para alternar entre "Taxa de Dispensação" e "Visão Geral"
+        function setVisao(visao) {
+            const btnTaxa = document.getElementById('btn-taxa');
+            const btnVisao = document.getElementById('btn-visao');
+            const thCol4 = document.getElementById('th-col4');
+            const thCol5 = document.getElementById('th-col5');
+            
+            if (visao === 'taxa') {
+                btnTaxa.className = "px-3 py-1 text-xs font-medium bg-white shadow-sm rounded-md text-gray-800 transition-all";
+                btnVisao.className = "px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 rounded-md transition-all";
+                thCol4.innerText = "Taxa Dispensação";
+                thCol5.innerText = "Desvio da Média";
+            } else {
+                btnVisao.className = "px-3 py-1 text-xs font-medium bg-white shadow-sm rounded-md text-gray-800 transition-all";
+                btnTaxa.className = "px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 rounded-md transition-all";
+                thCol4.innerText = "Vol. Dispensado";
+                thCol5.innerText = "Pendentes";
+            }
+            
+            document.querySelectorAll('.view-taxa').forEach(el => {
+                el.style.display = (visao === 'taxa') ? '' : 'none';
+            });
+            document.querySelectorAll('.view-visao').forEach(el => {
+                el.style.display = (visao === 'visao') ? '' : 'none';
+            });
+        }
+
+        // Função para atualizar o dashboard dinamicamente
+        function atualizarDashboard() {
+            const prescritorSelecionado = document.getElementById('filtroPrescritor').value;
+            
+            // 1. Filtrar Tabela de Prescritores
+            const linhas = document.querySelectorAll('.prescritor-row');
+            linhas.forEach(linha => {
+                if (prescritorSelecionado === 'todos' || linha.dataset.prescritor === prescritorSelecionado) {
+                    linha.style.display = '';
+                } else {
+                    linha.style.display = 'none';
+                }
+            });
+
+            // 2. Filtrar Alertas Estratégicos
+            const alertas = document.querySelectorAll('.alerta-item');
+            alertas.forEach(alerta => {
+                if (prescritorSelecionado === 'todos' || alerta.dataset.prescritor === prescritorSelecionado || alerta.dataset.prescritor === 'todos') {
+                    alerta.style.display = 'flex';
+                } else {
+                    alerta.style.display = 'none';
+                }
+            });
+
+            // 3. Efeito visual e atualização de KPIs simulada
+            const cards = ['card-volume', 'card-dispensacoes', 'card-taxa'];
+            cards.forEach(id => document.getElementById(id).style.opacity = '0.4');
+
+            setTimeout(() => {
+                if (prescritorSelecionado === 'todos') {
+                    document.getElementById('kpi-volume').innerText = '4.250';
+                    document.getElementById('kpi-dispensacoes').innerText = '3.985';
+                    document.getElementById('kpi-taxa').innerText = '93.7%';
+                    document.getElementById('kpi-cobertura').innerText = '6';
+                    document.getElementById('kpi-cobertura-desc').innerText = 'profissionais ativos';
+                    
+                    // Restaurar gráficos originais
+                    chartHourly.data.datasets[0].data = [5, 4, 3, 2, 5, 10, 25, 45, 65, 85, 100, 120, 95, 85, 75, 65, 70, 110, 90, 65, 45, 30, 20, 10];
+                    chartTrend.data.datasets[0].data = [15, 12, 10, 8, 10, 20, 45, 80, 110, 130, 145, 160, 150, 140, 120, 100, 90, 115, 130, 105, 80, 50, 30, 20];
+                    chartTrend.data.datasets[1].data = [12, 10, 8, 7, 9, 18, 40, 75, 100, 120, 135, 140, 130, 125, 110, 95, 85, 105, 120, 95, 75, 45, 25, 18];
+                    chartTop10.data.datasets[0].data = [450, 380, 320, 290, 250, 210, 190, 150, 120, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40];
+                } else {
+                    // Dados simulados para um prescritor específico
+                    const vol = Math.floor(Math.random() * 300) + 150;
+                    const disp = Math.floor(vol * (Math.random() * 0.1 + 0.85));
+                    const taxa = ((disp / vol) * 100).toFixed(1);
+                    
+                    document.getElementById('kpi-volume').innerText = vol;
+                    document.getElementById('kpi-dispensacoes').innerText = disp;
+                    document.getElementById('kpi-taxa').innerText = taxa + '%';
+                    document.getElementById('kpi-cobertura').innerText = '1';
+                    document.getElementById('kpi-cobertura-desc').innerText = 'profissional ativo';
+
+                    // Gerar novos dados randômicos para os gráficos
+                    chartHourly.data.datasets[0].data = Array.from({length: 24}, () => Math.floor(Math.random() * 30) + 2);
+                    
+                    const newTrendVol = Array.from({length: 24}, () => Math.floor(Math.random() * 15) + 5);
+                    const newTrendDisp = newTrendVol.map(v => Math.floor(v * (Math.random() * 0.2 + 0.8)));
+                    
+                    chartTrend.data.datasets[0].data = newTrendVol;
+                    chartTrend.data.datasets[1].data = newTrendDisp;
+
+                    chartTop10.data.datasets[0].data = Array.from({length: 20}, () => Math.floor(Math.random() * 100) + 20).sort((a, b) => b - a);
+                }
+                
+                // Randomizar cores e atualizar tooltips do heatmap
+                const heatmapCells = document.querySelectorAll('.heatmap-cell');
+                const cores = ['bg-blue-100', 'bg-blue-200', 'bg-blue-300', 'bg-blue-400', 'bg-blue-500', 'bg-blue-600', 'bg-blue-700', 'bg-blue-800', 'bg-blue-900'];
+                heatmapCells.forEach(cell => {
+                    // Remove classes de cor antigas
+                    cell.className = cell.className.replace(/bg-blue-\d00/g, '');
+                    // Adiciona nova cor aleatória
+                    const colorIndex = Math.floor(Math.random() * cores.length);
+                    const randomColor = cores[colorIndex];
+                    cell.classList.add(randomColor);
+                    // Atualiza o tooltip dinamicamente
+                    const valorSimulado = (colorIndex + 1) * Math.floor(Math.random() * 10 + 5);
+                    cell.setAttribute('title', `${valorSimulado} dispensações`);
+                });
+
+                chartHourly.update();
+                chartTrend.update();
+                chartTop10.update();
+                
+                cards.forEach(id => document.getElementById(id).style.opacity = '1');
+            }, 400);
+        }
+
+        // Iniciar gráficos ao carregar a página
+        window.onload = initCharts;
+    </script>
+</body>
+</html>
